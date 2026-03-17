@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PromptBoard</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Syne:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080908;--s1:#0e100d;--s2:#13150f;--s3:#181a15;--s4:#1d201a;
+  --b1:#232620;--b2:#2c3028;--b3:#363b30;
+  --t1:#dce8d4;--t2:#78906e;--t3:#465440;--t4:#28302a;
+  --green:#44c85e;--g2:#34a04a;--gbg:#081408;--gbr:#183a18;
+  --amber:#cc9428;--abg:#180f04;--abr:#3a2808;
+  --blue:#50a0cc;--bbg:#080f18;--bbr:#142840;
+  --red:#c04848;--rbg:#140808;--rbr:#381010;
+  --purple:#8868cc;--pbg:#0e0818;--pbr:#241840;
+  --cyan:#38b0a0;--cbg:#081410;--cbr:#103028;
+  --mono:'Fira Code',monospace;--sans:'Syne',sans-serif;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px;display:flex;flex-direction:column}
+
+/* ═══════════ TOPBAR ═══════════ */
+#bar{
+  height:42px;flex-shrink:0;display:flex;align-items:center;
+  gap:8px;padding:0 14px;
+  background:var(--s1);border-bottom:1px solid var(--b1);
+}
+.logo{font-family:var(--mono);font-size:11px;font-weight:500;display:flex;align-items:center;gap:7px;color:var(--t1);flex-shrink:0}
+.lbox{width:18px;height:18px;border:1.5px solid var(--green);border-radius:3px;display:flex;align-items:center;justify-content:center;color:var(--green)}
+.vsep{width:1px;height:18px;background:var(--b2);flex-shrink:0;margin:0 2px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--t3);transition:all .3s;flex-shrink:0}
+.dot.on{background:var(--green);box-shadow:0 0 5px var(--g2)}
+#stTxt{font-family:var(--mono);font-size:10px;color:var(--t2);white-space:nowrap}
+
+/* sample-rate control */
+.sr-group{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.sr-lbl{font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:.08em;white-space:nowrap}
+.sr-sel{
+  background:var(--s2);border:1px solid var(--b2);border-radius:4px;
+  font-family:var(--mono);font-size:10px;color:var(--t1);
+  padding:3px 6px;outline:none;cursor:pointer;
+}
+.sr-sel:focus{border-color:var(--b3)}
+.sr-hz{font-family:var(--mono);font-size:9px;color:var(--green);white-space:nowrap;min-width:52px}
+.bar-spacer{flex:1}
+.tbtn{
+  padding:4px 11px;border-radius:4px;font-family:var(--mono);font-size:10px;
+  cursor:pointer;border:1px solid var(--b2);background:transparent;color:var(--t2);
+  transition:all .14s;white-space:nowrap;flex-shrink:0;
+}
+.tbtn:hover{color:var(--t1);border-color:var(--b3)}
+.tbtn.live{background:var(--gbg);border-color:var(--gbr);color:var(--green)}
+
+/* ═══════════ APP GRID — 3 cols ═══════════ */
+#app{
+  display:grid;
+  grid-template-columns:200px 1fr 268px;
+  flex:1;overflow:hidden;min-height:0;
+}
+
+/* ═══════════ LEFT PANEL ═══════════ */
+#left{display:flex;flex-direction:column;border-right:1px solid var(--b1);overflow:hidden;min-height:0}
+
+/* connection strip */
+.conn-strip{
+  flex-shrink:0;padding:8px 10px;
+  border-bottom:1px solid var(--b1);
+  display:flex;gap:5px;align-items:center;
+}
+.conn-in{
+  flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:4px;
+  padding:5px 7px;font-family:var(--mono);font-size:10px;color:var(--t1);outline:none;min-width:0;
+}
+.conn-in:focus{border-color:var(--b2)}
+.conn-go{
+  padding:5px 9px;border-radius:4px;background:var(--s2);border:1px solid var(--b2);
+  color:var(--t1);font-family:var(--mono);font-size:10px;cursor:pointer;
+  transition:all .14s;white-space:nowrap;flex-shrink:0;
+}
+.conn-go:hover{border-color:var(--green);color:var(--green)}
+.conn-go.live{background:var(--gbg);border-color:var(--gbr);color:var(--green)}
+
+/* tab bar */
+.tab-bar{
+  display:flex;border-bottom:1px solid var(--b1);flex-shrink:0;background:var(--s1);
+}
+.tab{
+  flex:1;padding:7px 4px;text-align:center;font-family:var(--mono);font-size:9px;
+  letter-spacing:.06em;color:var(--t3);cursor:pointer;border-right:1px solid var(--b1);
+  transition:all .14s;text-transform:uppercase;
+}
+.tab:last-child{border-right:none}
+.tab:hover{color:var(--t2);background:var(--s2)}
+.tab.active{color:var(--green);background:var(--gbg);border-bottom:1px solid var(--green)}
+
+/* tab panels */
+.tab-panels{flex:1;overflow:hidden;min-height:0;position:relative}
+.tp{
+  display:none;flex-direction:column;
+  height:100%;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--b1) transparent;
+}
+.tp.active{display:flex}
+
+/* section header inside tabs */
+.sh{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:7px 10px 5px;position:sticky;top:0;
+  background:var(--s1);z-index:2;border-bottom:1px solid var(--b1);
+}
+.sh-lbl{font-family:var(--mono);font-size:8px;letter-spacing:.14em;color:var(--t3);text-transform:uppercase}
+.sh-btn{font-family:var(--mono);font-size:9px;color:var(--t2);cursor:pointer;border:1px solid var(--b1);background:transparent;padding:1px 6px;border-radius:3px}
+.sh-btn:hover{color:var(--t1);border-color:var(--b2)}
+
+/* ── ANALOG channel rows ── */
+.ch-rows{display:flex;flex-direction:column}
+.chr{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 10px;border-bottom:1px solid var(--b1);
+  transition:background .1s;
+}
+.chr:hover{background:var(--s2)}
+.chr.plotting{background:var(--bbg)}
+.chr-pin{
+  font-family:var(--mono);font-size:8px;color:var(--t4);background:var(--s3);
+  padding:1px 4px;border-radius:3px;flex-shrink:0;width:24px;text-align:center;
+}
+.chr-info{flex:1;min-width:0}
+.chr-name{font-family:var(--mono);font-size:9px;color:var(--t2);line-height:1.2}
+.chr.plotting .chr-name{color:var(--blue)}
+.chr-desc{font-family:var(--mono);font-size:8px;color:var(--t4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chr-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
+.chr-val{font-family:var(--mono);font-size:13px;color:var(--t1);line-height:1;letter-spacing:-.01em}
+.chr-unit{font-family:var(--mono);font-size:8px;color:var(--t3)}
+.chr-actions{display:flex;gap:3px}
+.ca{padding:2px 5px;font-family:var(--mono);font-size:8px;border-radius:3px;border:1px solid var(--b2);background:transparent;color:var(--t2);cursor:pointer;transition:all .12s}
+.ca:hover{color:var(--t1);border-color:var(--b3)}
+.ca.p-on{background:var(--bbg);border-color:var(--bbr);color:var(--blue)}
+.chr-bar{height:2px;background:var(--b1);border-radius:1px;overflow:hidden;margin-top:2px}
+.chr-fill{height:100%;border-radius:1px;transition:width .4s ease}
+
+/* ── DIGITAL output rows ── */
+.out-rows{display:flex;flex-direction:column}
+.outr{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 10px;border-bottom:1px solid var(--b1);
+  cursor:pointer;transition:background .1s;user-select:none;
+}
+.outr:hover{background:var(--s2)}
+.outr.on{background:var(--gbg)}
+.outr-pin{font-family:var(--mono);font-size:8px;color:var(--t4);background:var(--s3);padding:1px 4px;border-radius:3px;flex-shrink:0;width:24px;text-align:center}
+.outr-name{font-family:var(--mono);font-size:10px;color:var(--t2);flex:1}
+.outr.on .outr-name{color:var(--green)}
+.outr-led{width:8px;height:8px;border-radius:50%;background:var(--t4);flex-shrink:0;transition:all .2s}
+.outr.on .outr-led{background:var(--green);box-shadow:0 0 5px var(--g2)}
+.outr-state{font-family:var(--mono);font-size:8px;color:var(--t3);width:22px;text-align:right}
+.outr.on .outr-state{color:var(--g2)}
+
+/* ── WAVE cards (compact) ── */
+.wv-list{padding:8px 10px;display:flex;flex-direction:column;gap:8px}
+.wvc{border:1px solid var(--b1);border-radius:6px;padding:9px 10px;background:var(--s2)}
+.wvc-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.wvc-title{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--t1)}
+.wvc-pin{font-family:var(--mono);font-size:8px;color:var(--t4);background:var(--s3);padding:1px 5px;border-radius:3px}
+.wvc-types{display:flex;gap:3px;margin-bottom:7px}
+.wvt{flex:1;padding:3px;font-family:var(--mono);font-size:9px;border-radius:3px;border:1px solid var(--b2);background:transparent;color:var(--t2);cursor:pointer;text-align:center;transition:all .12s}
+.wvt.sel{background:var(--pbg);border-color:var(--pbr);color:var(--purple)}
+.pr{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.pr-lbl{font-family:var(--mono);font-size:8px;color:var(--t3);width:36px;flex-shrink:0}
+.pr-slider{flex:1;accent-color:var(--purple)}
+.pr-val{font-family:var(--mono);font-size:9px;color:var(--purple);width:44px;text-align:right;flex-shrink:0}
+.wvc-go{width:100%;padding:5px;font-family:var(--mono);font-size:9px;border-radius:4px;border:1px solid var(--pbr);background:var(--pbg);color:var(--purple);cursor:pointer;transition:all .12s}
+.wvc-go.run{background:var(--rbg);border-color:var(--rbr);color:var(--red)}
+
+/* pwm row */
+.pwm-list{padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.pwmr{border:1px solid var(--b1);border-radius:5px;padding:8px 10px;background:var(--s2)}
+.pwmr-hd{display:flex;justify-content:space-between;margin-bottom:6px}
+.pwmr-name{font-family:var(--mono);font-size:10px;color:var(--t1)}
+.pwmr-pin{font-family:var(--mono);font-size:8px;color:var(--t4);background:var(--s3);padding:1px 4px;border-radius:3px}
+.pwmr-row{display:flex;align-items:center;gap:6px}
+.pwmr-slider{flex:1;accent-color:var(--amber)}
+.pwmr-val{font-family:var(--mono);font-size:10px;color:var(--amber);width:52px;text-align:right}
+.pwmr-apply{padding:3px 8px;font-family:var(--mono);font-size:9px;border-radius:3px;border:1px solid var(--abr);background:var(--abg);color:var(--amber);cursor:pointer}
+
+/* settings tab */
+.settings-body{padding:10px}
+.set-group{margin-bottom:14px}
+.set-title{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--t3);text-transform:uppercase;margin-bottom:6px}
+.set-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.set-lbl{font-family:var(--mono);font-size:10px;color:var(--t2)}
+.set-val{font-family:var(--mono);font-size:10px;color:var(--green)}
+.set-in{background:var(--s2);border:1px solid var(--b2);border-radius:4px;padding:4px 7px;font-family:var(--mono);font-size:10px;color:var(--t1);outline:none;width:80px;text-align:right}
+.set-in:focus{border-color:var(--b3)}
+.set-sel{background:var(--s2);border:1px solid var(--b2);border-radius:4px;padding:4px 6px;font-family:var(--mono);font-size:10px;color:var(--t1);outline:none;cursor:pointer}
+.set-note{font-family:var(--mono);font-size:9px;color:var(--t4);margin-top:4px;line-height:1.6}
+.set-note code{background:var(--s3);padding:1px 4px;border-radius:2px;font-size:9px}
+
+/* ═══════════ CENTER — PLOTS ═══════════ */
+#center{display:flex;flex-direction:column;overflow:hidden;min-height:0;border-right:1px solid var(--b1)}
+
+/* plot toolbar */
+#plotBar{
+  flex-shrink:0;height:36px;display:flex;align-items:center;
+  gap:6px;padding:0 12px;
+  background:var(--s1);border-bottom:1px solid var(--b1);
+}
+.pb-lbl{font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:.08em}
+.pb-chip{
+  padding:3px 8px;border-radius:20px;font-family:var(--mono);font-size:9px;
+  border:1px solid var(--b2);background:transparent;color:var(--t2);cursor:pointer;
+  transition:all .12s;
+}
+.pb-chip:hover{color:var(--t1);border-color:var(--b3)}
+.pb-chip.active-ch{background:var(--bbg);border-color:var(--bbr);color:var(--blue)}
+.pb-spacer{flex:1}
+.pb-btn{
+  padding:3px 9px;border-radius:4px;font-family:var(--mono);font-size:9px;
+  border:1px solid var(--b2);background:transparent;color:var(--t2);cursor:pointer;
+  transition:all .12s;display:flex;align-items:center;gap:4px;
+}
+.pb-btn:hover{color:var(--t1);border-color:var(--b3)}
+.pb-btn svg{flex-shrink:0}
+
+/* plot area */
+#plotArea{
+  flex:1;overflow-y:auto;padding:10px;
+  display:flex;flex-direction:column;gap:8px;
+  scrollbar-width:thin;scrollbar-color:var(--b1) transparent;min-height:0;
+}
+.no-plots{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;color:var(--t3);font-family:var(--mono);font-size:11px;gap:8px;text-align:center;
+}
+.np-icon{width:32px;height:32px;border:1px solid var(--b2);border-radius:6px;display:flex;align-items:center;justify-content:center;margin:0 auto}
+
+/* plot card */
+.pc{background:var(--s1);border:1px solid var(--b1);border-radius:7px;overflow:hidden;flex-shrink:0}
+.pc-hd{
+  display:flex;align-items:center;gap:8px;padding:7px 10px;
+  border-bottom:1px solid var(--b1);
+}
+.pc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.pc-title{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--t1);flex:1}
+.pc-val{font-family:var(--mono);font-size:11px;color:var(--t2)}
+.pc-unit{font-family:var(--mono);font-size:9px;color:var(--t3);margin-left:2px}
+.pc-sr{font-family:var(--mono);font-size:8px;color:var(--t4);padding:1px 5px;background:var(--s3);border-radius:3px;margin-left:4px}
+.pc-actions{display:flex;gap:4px;margin-left:auto}
+.pc-act{
+  padding:2px 7px;border-radius:3px;font-family:var(--mono);font-size:8px;
+  border:1px solid var(--b2);background:transparent;color:var(--t2);cursor:pointer;
+  transition:all .12s;display:flex;align-items:center;gap:3px;
+}
+.pc-act:hover{color:var(--t1);border-color:var(--b3)}
+.pc-act.pause{background:var(--abg);border-color:var(--abr);color:var(--amber)}
+/* FIX: canvas as normal block element, explicit height set via JS */
+.pc-body{padding:8px 10px 10px}
+.pc-canvas-wrap{width:100%;overflow:hidden}
+.pc-canvas-wrap canvas{display:block}
+.pc-close{background:transparent;border:none;color:var(--t3);cursor:pointer;font-size:13px;line-height:1;flex-shrink:0}
+.pc-close:hover{color:var(--red)}
+
+/* log strip */
+#logWrap{
+  flex-shrink:0;height:100px;display:flex;flex-direction:column;
+  border-top:1px solid var(--b1);
+}
+.log-hd{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:4px 12px;border-bottom:1px solid var(--b1);flex-shrink:0;
+}
+.log-hd-l{font-family:var(--mono);font-size:8px;letter-spacing:.12em;color:var(--t3);text-transform:uppercase}
+.log-hd-btns{display:flex;gap:4px}
+.log-btn{font-family:var(--mono);font-size:9px;color:var(--t2);cursor:pointer;border:1px solid var(--b1);background:transparent;padding:1px 6px;border-radius:3px}
+.log-btn:hover{color:var(--t1);border-color:var(--b2)}
+#logScroll{flex:1;overflow-y:auto;padding:4px 12px;font-family:var(--mono);font-size:10px;line-height:1.8;scrollbar-width:thin;scrollbar-color:var(--b1) transparent}
+.ll{display:flex;gap:8px}
+.lt{color:var(--t4)}.lv.tx{color:var(--amber)}.lv.rx{color:var(--green)}.lv.info{color:var(--t2)}.lv.ai{color:var(--blue)}.lv.err{color:var(--red)}
+
+/* ═══════════ RIGHT — AI CHAT ═══════════ */
+#chat{display:flex;flex-direction:column;background:var(--s1);overflow:hidden;min-height:0}
+.chat-hd{
+  padding:10px 13px;border-bottom:1px solid var(--b1);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.chat-hd-l{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--t3);text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.ai-dot{width:5px;height:5px;border-radius:50%;background:var(--blue)}
+.chat-model{font-family:var(--mono);font-size:9px;color:var(--t4)}
+.api-box{margin:8px 11px 0;background:var(--abg);border:1px solid var(--abr);border-radius:6px;padding:8px 10px;flex-shrink:0}
+.api-box p{font-size:11px;color:var(--amber);font-family:var(--mono);line-height:1.5;margin-bottom:5px}
+.ak-row{display:flex;gap:4px}
+.ak-in{flex:1;background:var(--s1);border:1px solid var(--abr);border-radius:4px;padding:5px 7px;font-family:var(--mono);font-size:10px;color:var(--amber);outline:none}
+.ak-save{padding:5px 9px;background:transparent;border:1px solid var(--abr);border-radius:4px;color:var(--amber);font-family:var(--mono);font-size:10px;cursor:pointer}
+.ak-save:hover{background:#2a1808}
+#msgs{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:7px;scrollbar-width:thin;scrollbar-color:var(--b1) transparent;min-height:0}
+.msg{padding:8px 11px;border-radius:7px;font-size:12px;line-height:1.6;max-width:92%}
+.msg.user{align-self:flex-end;background:var(--bbg);border:1px solid var(--bbr);color:#70b4d0;font-family:var(--sans)}
+.msg.ai{align-self:flex-start;background:var(--s2);border:1px solid var(--b1);color:var(--t1);font-family:var(--sans)}
+.msg.think{align-self:flex-start;background:var(--s2);border:1px solid var(--b1);color:var(--t3);font-family:var(--mono);font-size:10px;font-style:italic}
+.chip{display:inline-block;background:var(--gbg);border:1px solid var(--gbr);color:var(--green);font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;margin:2px 2px 0;cursor:pointer}
+.chip:hover{background:#0e2010}
+.blink span{animation:bk 1.2s infinite}.blink span:nth-child(2){animation-delay:.2s}.blink span:nth-child(3){animation-delay:.4s}
+@keyframes bk{0%,80%,100%{opacity:0}40%{opacity:1}}
+.qrow{display:flex;flex-wrap:wrap;gap:3px;padding:7px 11px;border-top:1px solid var(--b1);flex-shrink:0}
+.qbtn{padding:3px 7px;border-radius:20px;border:1px solid var(--b1);background:transparent;color:var(--t2);font-size:10px;font-family:var(--mono);cursor:pointer;transition:all .12s}
+.qbtn:hover{border-color:var(--b2);color:var(--t1)}
+.inp-row{display:flex;gap:5px;padding:8px 11px;border-top:1px solid var(--b1);flex-shrink:0;align-items:flex-end}
+#chatIn{flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:7px 9px;font-family:var(--sans);font-size:12px;color:var(--t1);resize:none;outline:none;min-height:34px;max-height:72px;line-height:1.5;transition:border .15s}
+#chatIn:focus{border-color:var(--b2)}
+#chatIn::placeholder{color:var(--t4)}
+#sendBtn{width:32px;height:32px;flex-shrink:0;border-radius:6px;background:var(--green);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s;color:#08090a}
+#sendBtn:hover{background:var(--g2)}
+#sendBtn:disabled{opacity:.35;cursor:default}
+</style>
+</head>
+<body>
+
+<!-- ═══ TOPBAR ═══ -->
+<div id="bar">
+  <div class="logo">
+    <div class="lbox">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    </div>
+    PromptBoard
+  </div>
+  <div class="vsep"></div>
+  <div class="dot" id="dot"></div>
+  <span id="stTxt">disconnected</span>
+  <div class="vsep"></div>
+  <div class="sr-group">
+    <span class="sr-lbl">SAMPLE</span>
+    <select class="sr-sel" id="srSel" onchange="setSampleRate(this.value)">
+      <option value="5000">0.2 Hz</option>
+      <option value="2000">0.5 Hz</option>
+      <option value="1000" selected>1 Hz</option>
+      <option value="500">2 Hz</option>
+      <option value="250">4 Hz</option>
+      <option value="100">10 Hz</option>
+      <option value="50">20 Hz</option>
+      <option value="20">50 Hz</option>
+    </select>
+    <span class="sr-hz" id="srHz">1 Hz</span>
+  </div>
+  <div class="bar-spacer"></div>
+  <button class="tbtn" id="mainBtn" onclick="toggleConnect()">connect</button>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+
+<!-- LEFT: tabbed controls -->
+<div id="left">
+  <div class="conn-strip">
+    <input class="conn-in" id="wsUrl" value="ws://localhost:3001" placeholder="ws://...">
+    <button class="conn-go" id="connBtn" onclick="toggleConnect()">connect</button>
+  </div>
+  <div class="tab-bar">
+    <div class="tab active" id="tb0" onclick="switchTab(0)">analog</div>
+    <div class="tab" id="tb1" onclick="switchTab(1)">digital</div>
+    <div class="tab" id="tb2" onclick="switchTab(2)">waves</div>
+    <div class="tab" id="tb3" onclick="switchTab(3)">config</div>
+  </div>
+  <div class="tab-panels">
+    <!-- ANALOG TAB -->
+    <div class="tp active" id="tp0">
+      <div class="sh">
+        <span class="sh-lbl">analog inputs</span>
+        <button class="sh-btn" onclick="readAll()">↻ all</button>
+      </div>
+      <div class="ch-rows" id="chRows"></div>
+    </div>
+    <!-- DIGITAL TAB -->
+    <div class="tp" id="tp1">
+      <div class="sh">
+        <span class="sh-lbl">digital outputs</span>
+        <button class="sh-btn" onclick="doAllOff()">all off</button>
+      </div>
+      <div class="out-rows" id="outRows"></div>
+    </div>
+    <!-- WAVES TAB -->
+    <div class="tp" id="tp2">
+      <div class="sh"><span class="sh-lbl">function generators</span></div>
+      <div class="wv-list" id="waveList"></div>
+      <div class="sh" style="margin-top:4px"><span class="sh-lbl">PWM outputs</span></div>
+      <div class="pwm-list" id="pwmList"></div>
+    </div>
+    <!-- CONFIG / SETTINGS TAB -->
+    <div class="tp" id="tp3">
+      <div class="sh"><span class="sh-lbl">settings</span></div>
+      <div class="settings-body">
+        <div class="set-group">
+          <div class="set-title">connection</div>
+          <div class="set-row"><span class="set-lbl">relay URL</span></div>
+          <input class="set-in" style="width:100%;margin-bottom:6px" id="wsUrl2" value="ws://localhost:3001" oninput="document.getElementById('wsUrl').value=this.value">
+          <div class="set-row">
+            <span class="set-lbl">baud rate</span>
+            <select class="set-sel" id="baudSel">
+              <option>9600</option><option selected>115200</option>
+            </select>
+          </div>
+          <div class="set-note">Run <code>node relay.js</code> on the host PC</div>
+        </div>
+        <div class="set-group">
+          <div class="set-title">sampling</div>
+          <div class="set-row">
+            <span class="set-lbl">rate</span>
+            <select class="set-sel" onchange="setSampleRate(this.value);document.getElementById('srSel').value=this.value">
+              <option value="5000">0.2 Hz</option>
+              <option value="2000">0.5 Hz</option>
+              <option value="1000" selected>1 Hz</option>
+              <option value="500">2 Hz</option>
+              <option value="250">4 Hz</option>
+              <option value="100">10 Hz</option>
+              <option value="50">20 Hz</option>
+              <option value="20">50 Hz</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <span class="set-lbl">buffer size</span>
+            <input class="set-in" type="number" id="bufSize" value="120" min="20" max="500" oninput="MAX_PTS=parseInt(this.value)||120">
+          </div>
+          <div class="set-note">Buffer = number of points shown on each plot</div>
+        </div>
+        <div class="set-group">
+          <div class="set-title">plot export</div>
+          <div class="set-row">
+            <span class="set-lbl">format</span>
+            <select class="set-sel" id="exportFmt">
+              <option value="png">PNG image</option>
+              <option value="csv">CSV data</option>
+            </select>
+          </div>
+          <div class="set-note">Use the save buttons on each plot card</div>
+        </div>
+        <div class="set-group">
+          <div class="set-title">groq api key</div>
+          <input class="set-in" type="password" style="width:100%;margin-bottom:6px" id="akIn2" placeholder="gsk_..." oninput="document.getElementById('akIn').value=this.value">
+          <button class="sh-btn" onclick="saveKey()">save key</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CENTER: plots + log -->
+<div id="center">
+  <!-- plot toolbar -->
+  <div id="plotBar">
+    <span class="pb-lbl">PLOTS</span>
+    <div id="pbChips"></div>
+    <div class="pb-spacer"></div>
+    <button class="pb-btn" onclick="exportAllCSV()" title="Export all data as CSV">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      export csv
+    </button>
+    <button class="pb-btn" onclick="saveAllPNG()" title="Save all plots as PNG">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      save png
+    </button>
+    <button class="pb-btn" onclick="clearAllPlots()" title="Clear all plot data">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      clear
+    </button>
+  </div>
+
+  <!-- plots -->
+  <div id="plotArea">
+    <div class="no-plots" id="noPlots">
+      <div class="np-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div style="font-size:11px">no active plots</div>
+      <div style="font-size:9px;color:var(--t4)">open analog tab → click plot</div>
+    </div>
+  </div>
+
+  <!-- serial log -->
+  <div id="logWrap">
+    <div class="log-hd">
+      <span class="log-hd-l">serial log</span>
+      <div class="log-hd-btns">
+        <button class="log-btn" onclick="exportLog()">export</button>
+        <button class="log-btn" onclick="clearLog()">clear</button>
+      </div>
+    </div>
+    <div id="logScroll"></div>
+  </div>
+</div>
+
+<!-- RIGHT: AI chat -->
+<div id="chat">
+  <div class="chat-hd">
+    <div class="chat-hd-l"><div class="ai-dot"></div>ai assistant</div>
+    <div class="chat-model">llama-3.3-70b · groq</div>
+  </div>
+  <div class="api-box" id="apiBox">
+    <p>Free Groq key → <strong>console.groq.com</strong></p>
+    <div class="ak-row">
+      <input class="ak-in" type="password" id="akIn" placeholder="gsk_...">
+      <button class="ak-save" onclick="saveKey()">save</button>
+    </div>
+  </div>
+  <div id="msgs"></div>
+  <div class="qrow">
+    <button class="qbtn" onclick="qs('Measure voltage CH1')">voltage</button>
+    <button class="qbtn" onclick="qs('Read temperature')">temp</button>
+    <button class="qbtn" onclick="qs('Measure resistance')">resistance</button>
+    <button class="qbtn" onclick="qs('Read all channels')">read all</button>
+    <button class="qbtn" onclick="qs('Blink LED 3 times')">blink LED</button>
+    <button class="qbtn" onclick="qs('Sine 1Hz on WAVE1')">sine 1Hz</button>
+    <button class="qbtn" onclick="qs('PWM1 50% duty')">PWM 50%</button>
+    <button class="qbtn" onclick="qs('Plot CH1 live')">plot CH1</button>
+    <button class="qbtn" onclick="qs('Set sample rate to 10Hz')">10Hz</button>
+    <button class="qbtn" onclick="qs('Turn off everything')">all off</button>
+  </div>
+  <div class="inp-row">
+    <textarea id="chatIn" placeholder="Ask AI to measure, generate, plot…" rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"
+      oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,72)+'px'"></textarea>
+    <button id="sendBtn" onclick="sendMsg()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let ws=null, connected=false, intentionalClose=false;
+let apiKey=localStorage.getItem('lab_k')||'';
+let chatHistory=[], isSending=false;
+let sampleMs=1000;   // ms between reads when plotting
+let MAX_PTS=120;
+let logLines=[];     // keep raw log for export
+
+const CHANNELS=[
+  {id:1,name:'CH1 Voltage',   pin:'A0',unit:'V',  max:5,    desc:'0–5V direct',        key:'CH1_V',color:'#44c85e'},
+  {id:2,name:'CH2 Temp',      pin:'A1',unit:'°C', max:100,  desc:'NTC 10k thermistor', key:'CH2_T',color:'#cc9428'},
+  {id:3,name:'CH3 Resistance',pin:'A2',unit:'Ω',  max:50000,desc:'10k voltage divider',key:'CH3_R',color:'#50a0cc'},
+  {id:4,name:'CH4 Light',     pin:'A3',unit:'V',  max:5,    desc:'LDR voltage',        key:'CH4_L',color:'#c8c040'},
+  {id:5,name:'CH5 Current',   pin:'A4',unit:'mA', max:500,  desc:'0.1Ω shunt',         key:'CH5_I',color:'#c04848'},
+  {id:6,name:'CH6 Generic',   pin:'A5',unit:'V',  max:5,    desc:'Any 0–5V signal',    key:'CH6_G',color:'#8868cc'},
+];
+const KEY_MAP={};
+CHANNELS.forEach(c=>KEY_MAP[c.key]=c.id);
+
+const chState={};
+CHANNELS.forEach(c=>chState[c.id]={value:null,plotting:false,paused:false,chart:null,data:[],ts:[],interval:null});
+
+const OUTS=[
+  {pin:2, name:'OUT1',state:false},
+  {pin:3, name:'OUT2',state:false},
+  {pin:4, name:'OUT3',state:false},
+  {pin:5, name:'OUT4',state:false},
+  {pin:13,name:'LED13',state:false},
+];
+const WAVES=[
+  {id:1,pin:'D10',name:'WAVE1',type:'sine',freq:1,amp:1.0,offset:0.5,running:false},
+  {id:2,pin:'D11',name:'WAVE2',type:'sine',freq:1,amp:1.0,offset:0.5,running:false},
+];
+const PWMS=[
+  {pin:6,name:'PWM1',duty:128},
+  {pin:9,name:'PWM2',duty:128},
+];
+
+// ══════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════
+function boot(){
+  renderChRows(); renderOutRows(); renderWaveList(); renderPWMList();
+  if(apiKey) hideApiBox();
+  addMsg('ai','Lab instrument ready.<br><br>'+
+    '<span class="chip" onclick="qs(this.innerText)">measure voltage CH1</span> '+
+    '<span class="chip" onclick="qs(this.innerText)">read temperature</span> '+
+    '<span class="chip" onclick="qs(this.innerText)">blink LED 3 times</span> '+
+    '<span class="chip" onclick="qs(this.innerText)">sine 500Hz WAVE1</span> '+
+    '<span class="chip" onclick="qs(this.innerText)">plot CH1 live</span> '+
+    '<span class="chip" onclick="qs(this.innerText)">set sample rate 10Hz</span>');
+}
+
+// ══════════════════════════════════════════════
+//  TAB SWITCHING
+// ══════════════════════════════════════════════
+function switchTab(i){
+  for(let j=0;j<4;j++){
+    document.getElementById('tb'+j).className='tab'+(j===i?' active':'');
+    document.getElementById('tp'+j).className='tp'+(j===i?' active':'');
+  }
+}
+
+// ══════════════════════════════════════════════
+//  SAMPLE RATE
+// ══════════════════════════════════════════════
+function setSampleRate(ms){
+  ms=parseInt(ms); sampleMs=ms;
+  const hz=ms>=1000?(1000/ms).toFixed(1)+'Hz':(1000/ms).toFixed(0)+'Hz';
+  document.getElementById('srHz').textContent=hz;
+  // restart all active plot intervals with new rate
+  CHANNELS.forEach(ch=>{
+    const st=chState[ch.id];
+    if(st.plotting&&st.interval){
+      clearInterval(st.interval);
+      st.interval=setInterval(()=>{ if(st.plotting&&!st.paused) readCh(ch.id); },sampleMs);
+    }
+  });
+  log('Sample rate → '+hz,'info');
+}
+
+// ══════════════════════════════════════════════
+//  ANALOG CHANNEL ROWS
+// ══════════════════════════════════════════════
+function renderChRows(){
+  const el=document.getElementById('chRows'); el.innerHTML='';
+  CHANNELS.forEach(ch=>{
+    const st=chState[ch.id];
+    const vTxt=st.value!==null?fmtVal(ch,st.value):'—';
+    const pct=st.value!==null?Math.min(100,Math.abs(st.value)/ch.max*100):0;
+    const d=document.createElement('div');
+    d.className='chr'+(st.plotting?' plotting':''); d.id='chr'+ch.id;
+    d.innerHTML=`
+      <span class="chr-pin">${ch.pin}</span>
+      <div class="chr-info">
+        <div class="chr-name">${ch.name}</div>
+        <div class="chr-desc">${ch.desc}</div>
+        <div class="chr-bar"><div class="chr-fill" id="cb${ch.id}" style="width:${pct}%;background:${ch.color}"></div></div>
+      </div>
+      <div class="chr-right">
+        <div>
+          <span class="chr-val" id="cv${ch.id}">${vTxt}</span>
+          <span class="chr-unit">${st.value!==null?ch.unit:''}</span>
+        </div>
+        <div class="chr-actions">
+          <button class="ca" onclick="readCh(${ch.id})">read</button>
+          <button class="ca ${st.plotting?'p-on':''}" id="cpb${ch.id}" onclick="togglePlot(${ch.id})">${st.plotting?'■':'▶'}</button>
+        </div>
+      </div>`;
+    el.appendChild(d);
+  });
+}
+
+function updateChRow(id){
+  const ch=CHANNELS.find(c=>c.id===id), st=chState[id];
+  const row=document.getElementById('chr'+id); if(!row) return;
+  row.className='chr'+(st.plotting?' plotting':'');
+  const vEl=document.getElementById('cv'+id); if(vEl) vEl.textContent=st.value!==null?fmtVal(ch,st.value):'—';
+  const bEl=document.getElementById('cb'+id); if(bEl) bEl.style.width=(st.value!==null?Math.min(100,Math.abs(st.value)/ch.max*100):0)+'%';
+  const pb=document.getElementById('cpb'+id);
+  if(pb){pb.className='ca'+(st.plotting?' p-on':'');pb.textContent=st.plotting?'■':'▶';}
+}
+
+function fmtVal(ch,v){
+  if(ch.unit==='Ω')  return v>=1000?(v/1000).toFixed(2)+'k':v.toFixed(0);
+  if(ch.unit==='°C') return parseFloat(v).toFixed(1);
+  if(ch.unit==='mA') return parseFloat(v).toFixed(1);
+  return parseFloat(v).toFixed(3);
+}
+
+// ══════════════════════════════════════════════
+//  DIGITAL OUTPUT ROWS
+// ══════════════════════════════════════════════
+function renderOutRows(){
+  const el=document.getElementById('outRows'); el.innerHTML='';
+  OUTS.forEach(o=>{
+    const d=document.createElement('div');
+    d.className='outr'+(o.state?' on':''); d.id='outr'+o.pin;
+    d.onclick=()=>tapOut(o.pin);
+    d.innerHTML=`
+      <span class="outr-pin">D${o.pin}</span>
+      <span class="outr-name">${o.name}</span>
+      <span class="outr-led"></span>
+      <span class="outr-state">${o.state?'HIGH':'LOW'}</span>`;
+    el.appendChild(d);
+  });
+}
+function setOutUI(pin,state){
+  const o=OUTS.find(x=>x.pin===pin); if(o) o.state=state;
+  const el=document.getElementById('outr'+pin); if(!el) return;
+  el.className='outr'+(state?' on':'');
+  el.querySelector('.outr-name').style.color=state?'var(--green)':'';
+  el.querySelector('.outr-state').textContent=state?'HIGH':'LOW';
+}
+function tapOut(pin){
+  const o=OUTS.find(x=>x.pin===pin); if(!o) return;
+  const ns=!o.state; send('OUT:'+pin+':'+(ns?'HIGH':'LOW')); setOutUI(pin,ns);
+}
+
+// ══════════════════════════════════════════════
+//  WAVE CARDS
+// ══════════════════════════════════════════════
+function renderWaveList(){
+  const el=document.getElementById('waveList'); el.innerHTML='';
+  WAVES.forEach(w=>{
+    const d=document.createElement('div'); d.className='wvc'; d.id='wvc'+w.id;
+    d.innerHTML=`
+      <div class="wvc-hd"><span class="wvc-title">${w.name}</span><span class="wvc-pin">${w.pin}</span></div>
+      <div class="wvc-types" id="wvt${w.id}">
+        <button class="wvt ${w.type==='sine'?'sel':''}"     onclick="setWType(${w.id},'sine',this)">sine</button>
+        <button class="wvt ${w.type==='square'?'sel':''}"   onclick="setWType(${w.id},'square',this)">square</button>
+        <button class="wvt ${w.type==='triangle'?'sel':''}" onclick="setWType(${w.id},'triangle',this)">tri</button>
+      </div>
+      <div class="pr"><span class="pr-lbl">freq</span><input type="range" class="pr-slider" id="wf${w.id}" min="0.1" max="500" step="0.1" value="${w.freq}" oninput="updateWP(${w.id},'freq',this.value)"><span class="pr-val" id="wfv${w.id}">${w.freq.toFixed(1)}Hz</span></div>
+      <div class="pr"><span class="pr-lbl">amp</span><input type="range" class="pr-slider" id="wa${w.id}" min="0" max="1" step="0.01" value="${w.amp}" oninput="updateWP(${w.id},'amp',this.value)"><span class="pr-val" id="wav${w.id}">${(w.amp*100).toFixed(0)}%</span></div>
+      <div class="pr"><span class="pr-lbl">offset</span><input type="range" class="pr-slider" id="wo${w.id}" min="0" max="1" step="0.01" value="${w.offset}" oninput="updateWP(${w.id},'offset',this.value)"><span class="pr-val" id="wov${w.id}">${(w.offset*100).toFixed(0)}%</span></div>
+      <button class="wvc-go ${w.running?'run':''}" id="wvb${w.id}" onclick="toggleWave(${w.id})">${w.running?'■ stop':'▶ start'}</button>`;
+    el.appendChild(d);
+  });
+}
+function setWType(id,type,btn){
+  const w=WAVES.find(x=>x.id===id); if(!w) return;
+  w.type=type;
+  document.querySelectorAll('#wvt'+id+' .wvt').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  if(w.running) sendWave(id);
+}
+function updateWP(id,p,val){
+  const w=WAVES.find(x=>x.id===id); if(!w) return;
+  val=parseFloat(val); w[p]=val;
+  if(p==='freq')   document.getElementById('wfv'+id).textContent=val.toFixed(1)+'Hz';
+  if(p==='amp')    document.getElementById('wav'+id).textContent=(val*100).toFixed(0)+'%';
+  if(p==='offset') document.getElementById('wov'+id).textContent=(val*100).toFixed(0)+'%';
+  if(w.running) sendWave(id);
+}
+function toggleWave(id){
+  const w=WAVES.find(x=>x.id===id); if(!w) return;
+  w.running=!w.running;
+  const btn=document.getElementById('wvb'+id);
+  btn.className='wvc-go'+(w.running?' run':'');
+  btn.textContent=w.running?'■ stop':'▶ start';
+  if(w.running) sendWave(id); else send('WAVE_STOP:'+id);
+}
+function sendWave(id){
+  const w=WAVES.find(x=>x.id===id); if(!w) return;
+  send(`WAVE:${w.id}:${w.type}:${w.freq.toFixed(2)}:${w.amp.toFixed(2)}:${w.offset.toFixed(2)}`);
+}
+
+// ══════════════════════════════════════════════
+//  PWM ROWS
+// ══════════════════════════════════════════════
+function renderPWMList(){
+  const el=document.getElementById('pwmList'); el.innerHTML='';
+  PWMS.forEach(p=>{
+    const d=document.createElement('div'); d.className='pwmr';
+    d.innerHTML=`
+      <div class="pwmr-hd"><span class="pwmr-name">${p.name}</span><span class="pwmr-pin">D${p.pin}</span></div>
+      <div class="pwmr-row">
+        <input type="range" class="pwmr-slider" id="ps${p.pin}" min="0" max="255" step="1" value="${p.duty}"
+          oninput="updatePWM(${p.pin},this.value)">
+        <span class="pwmr-val" id="pv${p.pin}">${(p.duty/255*100).toFixed(0)}% (${p.duty})</span>
+      </div>
+      <div style="margin-top:6px;display:flex;justify-content:flex-end">
+        <button class="pwmr-apply" onclick="applyPWM(${p.pin})">apply</button>
+      </div>`;
+    el.appendChild(d);
+  });
+}
+function updatePWM(pin,val){
+  const p=PWMS.find(x=>x.pin===pin); if(!p) return;
+  p.duty=parseInt(val);
+  const lbl=document.getElementById('pv'+pin);
+  if(lbl) lbl.textContent=(p.duty/255*100).toFixed(0)+'% ('+p.duty+')';
+}
+function applyPWM(pin){
+  const p=PWMS.find(x=>x.pin===pin); if(!p) return;
+  send('PWM:'+pin+':'+p.duty);
+}
+
+// ══════════════════════════════════════════════
+//  LIVE PLOTS
+// ══════════════════════════════════════════════
+function updatePbChips(){
+  const el=document.getElementById('pbChips'); el.innerHTML='';
+  CHANNELS.forEach(ch=>{
+    if(!chState[ch.id].plotting) return;
+    const b=document.createElement('button');
+    b.className='pb-chip active-ch';
+    b.textContent=ch.name.split(' ')[0];
+    b.style.borderColor=ch.color; b.style.color=ch.color;
+    b.onclick=()=>togglePlot(ch.id);
+    el.appendChild(b);
+  });
+}
+
+function togglePlot(id){
+  const st=chState[id];
+  st.plotting=!st.plotting;
+  if(st.plotting) createPlot(id); else destroyPlot(id);
+  updateChRow(id);
+  updatePbChips();
+}
+
+function createPlot(id){
+  const ch=CHANNELS.find(c=>c.id===id), st=chState[id];
+  document.getElementById('noPlots').style.display='none';
+
+  // reset state
+  st.data=[]; st.ts=[]; st.paused=false; st.chart=null;
+
+  // ── measure width BEFORE inserting the card ──────────────────
+  // #center is already laid out; subtract plotArea padding (10px each side)
+  const centerEl  = document.getElementById('center');
+  const plotArea  = document.getElementById('plotArea');
+  const areaW     = centerEl.clientWidth || 600;
+  const padding   = 20; // 10px left + 10px right from #plotArea
+  const W = Math.max(200, areaW - padding);
+  const H = 160;
+
+  const card=document.createElement('div'); card.className='pc'; card.id='pc'+id;
+  card.innerHTML=`
+    <div class="pc-hd">
+      <span class="pc-dot" style="background:${ch.color}"></span>
+      <span class="pc-title">${ch.name}</span>
+      <span class="pc-val" id="pcv${id}">—</span>
+      <span class="pc-unit">${ch.unit}</span>
+      <span class="pc-sr" id="pcsr${id}">${(1000/sampleMs).toFixed(sampleMs>=1000?1:0)} Hz</span>
+      <div class="pc-actions">
+        <button class="pc-act" id="ppb${id}" onclick="togglePause(${id})">⏸ pause</button>
+        <button class="pc-act" onclick="savePlotPNG(${id})">png</button>
+        <button class="pc-act" onclick="savePlotCSV(${id})">csv</button>
+        <button class="pc-act" onclick="clearPlotData(${id})">clear</button>
+      </div>
+      <button class="pc-close" onclick="togglePlot(${id})">✕</button>
+    </div>
+    <div class="pc-body">
+      <div class="pc-canvas-wrap" id="cw${id}"></div>
+    </div>`;
+  plotArea.appendChild(card);
+
+  // ── build canvas with explicit pixel dimensions ───────────────
+  const canvas = document.createElement('canvas');
+  canvas.id     = 'cv' + id;
+  canvas.width  = W;
+  canvas.height = H;
+  canvas.style.display = 'block';
+  canvas.style.width   = W + 'px';
+  canvas.style.height  = H + 'px';
+  document.getElementById('cw'+id).appendChild(canvas);
+
+  // ── create chart synchronously ────────────────────────────────
+  st.chart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        data: [],
+        borderColor: ch.color,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.3,
+        fill: true,
+        backgroundColor: ch.color + '18',
+      }]
+    },
+    options: {
+      responsive: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          enabled: true,
+          backgroundColor: '#0e100d',
+          borderColor: ch.color,
+          borderWidth: 1,
+          titleColor: ch.color,
+          bodyColor: '#dce8d4',
+          titleFont: { family: 'Fira Code', size: 9 },
+          bodyFont: { family: 'Fira Code', size: 10 },
+          callbacks: {
+            title: items => 't = ' + items[0].label,
+            label: item => fmtVal(ch, item.raw) + ' ' + ch.unit
+          }
+        }
+      },
+      scales: {
+        x: { display: false },
+        y: {
+          grid:  { color: '#1d201a' },
+          ticks: { color: '#465440', font: { family: 'Fira Code', size: 9 }, maxTicksLimit: 5 },
+          border:{ color: '#232620' }
+        }
+      }
+    }
+  });
+
+  log('Plot '+ch.name+' ready ('+W+'×'+H+')', 'info');
+
+  // ── start sampling ────────────────────────────────────────────
+  st.interval = setInterval(()=>{ if(st.plotting && !st.paused) readCh(id); }, sampleMs);
+  readCh(id);
+}
+
+function destroyPlot(id){
+  const st=chState[id];
+  if(st.chart){st.chart.destroy();st.chart=null;}
+  if(st.interval){clearInterval(st.interval);st.interval=null;}
+  const card=document.getElementById('pc'+id); if(card) card.remove();
+  if(!document.querySelector('.pc'))
+    document.getElementById('noPlots').style.display='flex';
+}
+
+function pushToPlot(id, value){
+  const st=chState[id];
+  if(!st.plotting || st.paused || !st.chart) return;
+
+  const ch=CHANNELS.find(c=>c.id===id);
+  const now=new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  st.data.push(value); st.ts.push(now);
+  if(st.data.length>MAX_PTS){ st.data.shift(); st.ts.shift(); }
+
+  st.chart.data.labels        = st.ts;
+  st.chart.data.datasets[0].data = st.data;
+  st.chart.update('none');
+
+  const vEl=document.getElementById('pcv'+id);
+  if(vEl) vEl.textContent=fmtVal(ch,value);
+  const srEl=document.getElementById('pcsr'+id);
+  if(srEl) srEl.textContent=(1000/sampleMs).toFixed(sampleMs>=1000?1:0)+' Hz';
+}
+
+function togglePause(id){
+  const st=chState[id]; st.paused=!st.paused;
+  const btn=document.getElementById('ppb'+id); if(!btn) return;
+  btn.textContent=st.paused?'▶ resume':'⏸ pause';
+  btn.className='pc-act'+(st.paused?' pause':'');
+}
+
+function clearPlotData(id){
+  const st=chState[id]; if(!st.chart) return;
+  st.data=[]; st.ts=[];
+  st.chart.data.labels=[];
+  st.chart.data.datasets[0].data=[];
+  st.chart.update('none');
+}
+
+function clearAllPlots(){
+  CHANNELS.forEach(ch=>clearPlotData(ch.id));
+}
+
+// ══════════════════════════════════════════════
+//  EXPORT — PNG & CSV
+// ══════════════════════════════════════════════
+function savePlotPNG(id){
+  const st=chState[id]; if(!st.chart) return;
+  const ch=CHANNELS.find(c=>c.id===id);
+  const canvas=document.getElementById('cv'+id); if(!canvas) return;
+  // render onto off-screen canvas with dark background so PNG looks correct
+  const off=document.createElement('canvas');
+  off.width=canvas.width; off.height=canvas.height;
+  const ctx=off.getContext('2d');
+  ctx.fillStyle='#08090a';
+  ctx.fillRect(0,0,off.width,off.height);
+  ctx.drawImage(canvas,0,0);
+  const a=document.createElement('a');
+  a.href=off.toDataURL('image/png');
+  a.download=ch.name.replace(/\s+/g,'_')+'_'+Date.now()+'.png';
+  a.click();
+  log('Saved PNG: '+a.download,'info');
+}
+
+function saveAllPNG(){
+  CHANNELS.forEach(ch=>{ if(chState[ch.id].plotting) savePlotPNG(ch.id); });
+}
+
+function savePlotCSV(id){
+  const st=chState[id], ch=CHANNELS.find(c=>c.id===id);
+  if(!st.data.length){log('No data to export for '+ch.name,'err');return;}
+  const rows=['time,'+ch.name+' ('+ch.unit+')'];
+  st.ts.forEach((t,i)=>rows.push(t+','+st.data[i]));
+  downloadText(rows.join('\n'), ch.name.replace(/\s+/g,'_')+'_'+Date.now()+'.csv','text/csv');
+  log('Saved CSV: '+ch.name,'info');
+}
+
+function exportAllCSV(){
+  const active=CHANNELS.filter(c=>chState[c.id].data.length>0);
+  if(!active.length){log('No plot data to export','err');return;}
+  // merge all channels by index (same sample count assumption)
+  const maxLen=Math.max(...active.map(c=>chState[c.id].data.length));
+  const header='time,'+active.map(c=>c.name+' ('+c.unit+')').join(',');
+  const rows=[header];
+  for(let i=0;i<maxLen;i++){
+    const t=active[0]?chState[active[0].id].ts[i]||'':'' ;
+    const vals=active.map(c=>{const d=chState[c.id].data; return d[i]!==undefined?d[i]:'';});
+    rows.push(t+','+vals.join(','));
+  }
+  downloadText(rows.join('\n'),'lab_export_'+Date.now()+'.csv','text/csv');
+  log('Exported all channels CSV','info');
+}
+
+function exportLog(){
+  downloadText(logLines.join('\n'),'serial_log_'+Date.now()+'.txt','text/plain');
+  log('Log exported','info');
+}
+
+function downloadText(text,filename,mime){
+  const blob=new Blob([text],{type:mime});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+// ══════════════════════════════════════════════
+//  SERIAL
+// ══════════════════════════════════════════════
+function readCh(id){send('READ_CH:'+id);}
+function readAll(){send('READ_ALL');}
+function doAllOff(){
+  send('ALL_OFF');
+  OUTS.forEach(o=>setOutUI(o.pin,false));
+  WAVES.forEach(w=>{w.running=false;renderWaveList();});
+}
+
+function send(cmd){
+  log('→ '+cmd,'tx');
+  if(ws&&ws.readyState===1) ws.send(cmd);
+  else sim(cmd);
+}
+
+function handleArduinoLine(line){
+  if(!line) return; line=line.trim();
+  if(line==='OK'){log('← OK','rx');return;}
+  if(line==='READY'){log('← Arduino READY','info');return;}
+  log('← '+line,'rx');
+  const m=line.match(/^(CH[1-6]_[A-Z]):(.+)$/);
+  if(m){
+    const key=m[1], raw=m[2].trim();
+    if(raw==='ERR'||raw==='OVR') return;
+    const val=parseFloat(raw); if(isNaN(val)) return;
+    const id=KEY_MAP[key]; if(!id) return;
+    chState[id].value=val; updateChRow(id); pushToPlot(id,val); return;
+  }
+  if(line.startsWith('PIN_STATE:')){const p=line.split(':');if(p.length===3)setOutUI(parseInt(p[1]),p[2]==='HIGH');return;}
+  if(line.startsWith('WAVE_ACK:')) {log('Wave: '+line.slice(9),'info');return;}
+  if(line.startsWith('PWM_ACK:'))  {log('PWM: '+line.slice(8),'info');return;}
+  if(line.startsWith('ERR:'))      {log('Error: '+line,'err');}
+}
+
+function sim(cmd){
+  setTimeout(()=>{
+    if(cmd.startsWith('READ_CH:')){
+      const id=parseInt(cmd.slice(8));
+      const fv={1:3.28+Math.random()*.08,2:23.1+Math.random()*2,3:9850+Math.random()*400,
+                4:2.1+Math.random()*.5, 5:11.8+Math.random()*1.5,6:2.49+Math.random()*.08};
+      const val=fv[id]||0, ch=CHANNELS.find(c=>c.id===id); if(!ch) return;
+      chState[id].value=val; updateChRow(id); pushToPlot(id,val);
+      log('← '+ch.key+':'+val.toFixed(3),'rx');
+    } else if(cmd==='READ_ALL'){
+      for(let i=1;i<=6;i++) sim('READ_CH:'+i);
+    } else if(cmd.startsWith('OUT:')){
+      const p=cmd.split(':'); setOutUI(parseInt(p[1]),p[2]==='HIGH'); log('← OK','rx');
+    } else if(cmd.startsWith('LED_BLINK:')){
+      const times=parseInt(cmd.split(':')[1])||3;
+      let i=0; const blink=()=>{if(i>=times*2){log('← OK','rx');return;}setOutUI(13,i%2===0);i++;setTimeout(blink,300);}; blink();
+    } else { log('← OK','rx'); }
+  },50+Math.random()*30);
+}
+
+// ══════════════════════════════════════════════
+//  WEBSOCKET
+// ══════════════════════════════════════════════
+function toggleConnect(){
+  if(connected){intentionalClose=true;ws&&ws.close();return;}
+  const url=document.getElementById('wsUrl').value.trim(); if(!url) return;
+  intentionalClose=false;
+  log('Connecting to '+url,'info');
+  try{
+    ws=new WebSocket(url);
+    ws.onopen=()=>{
+      connected=true;
+      document.getElementById('dot').className='dot on';
+      document.getElementById('stTxt').textContent='connected';
+      document.getElementById('connBtn').className='conn-go live';
+      document.getElementById('connBtn').textContent='disconnect';
+      document.getElementById('mainBtn').className='tbtn live';
+      document.getElementById('mainBtn').textContent='connected';
+      log('Relay connected','info');
+    };
+    ws.onmessage=e=>{
+      try{
+        const m=JSON.parse(e.data);
+        if(m.type==='data') handleArduinoLine(m.line);
+        else if(m.type==='status') log('Arduino '+(m.connected?'online':'not detected')+(m.port?' on '+m.port:''),'info');
+        else if(m.type==='error') log('Relay error: '+m.message,'err');
+      }catch{handleArduinoLine(e.data.trim());}
+    };
+    ws.onclose=()=>{
+      connected=false;
+      document.getElementById('dot').className='dot';
+      document.getElementById('stTxt').textContent=intentionalClose?'disconnected':'lost — retry?';
+      document.getElementById('connBtn').className='conn-go';
+      document.getElementById('connBtn').textContent='connect';
+      document.getElementById('mainBtn').className='tbtn';
+      document.getElementById('mainBtn').textContent='connect';
+      log(intentionalClose?'Disconnected':'Connection lost — check relay',intentionalClose?'info':'err');
+    };
+    ws.onerror=()=>log('WebSocket error — is relay.js running?','err');
+  }catch(e){log('Error: '+e.message,'err');}
+}
+
+// ══════════════════════════════════════════════
+//  LOG
+// ══════════════════════════════════════════════
+function log(text,type){
+  const el=document.getElementById('logScroll');
+  const t=new Date().toTimeString().slice(0,8);
+  logLines.push(t+' ['+type+'] '+text);
+  if(logLines.length>2000) logLines.shift();
+  const d=document.createElement('div'); d.className='ll';
+  d.innerHTML=`<span class="lt">${t}</span><span class="lv ${type}">${esc(text)}</span>`;
+  el.appendChild(d);
+  if(el.children.length>300) el.removeChild(el.firstChild);
+  el.scrollTop=el.scrollHeight;
+}
+function clearLog(){document.getElementById('logScroll').innerHTML='';logLines=[];}
+
+// ══════════════════════════════════════════════
+//  AI CHAT
+// ══════════════════════════════════════════════
+function saveKey(){
+  const k=(document.getElementById('akIn').value||document.getElementById('akIn2').value).trim();
+  if(!k) return;
+  apiKey=k; localStorage.setItem('lab_k',k); hideApiBox();
+  addMsg('ai','Groq key saved — Llama 3.3 70b ready.');
+}
+function hideApiBox(){document.getElementById('apiBox').style.display='none';}
+
+function addMsg(role,html){
+  const m=document.getElementById('msgs');
+  const d=document.createElement('div'); d.className='msg '+role; d.innerHTML=html;
+  m.appendChild(d); m.scrollTop=m.scrollHeight; return d;
+}
+function showThink(){
+  const d=addMsg('think','thinking <span class="blink"><span>.</span><span>.</span><span>.</span></span>');
+  d.id='thinking'; return d;
+}
+function rmThink(){const e=document.getElementById('thinking');if(e)e.remove();}
+function qs(t){document.getElementById('chatIn').value=t;sendMsg();}
+
+async function sendMsg(){
+  const inp=document.getElementById('chatIn');
+  const text=inp.value.trim(); if(!text||isSending) return;
+  addMsg('user',esc(text));
+  inp.value=''; inp.style.height='auto';
+  isSending=true; document.getElementById('sendBtn').disabled=true;
+  showThink();
+
+  const srHz=(1000/sampleMs).toFixed(sampleMs>=1000?1:0);
+  const sys=`You are an PromptBoard instrument AI.
+
+ANALOG INPUTS (read only):
+  CH1 A0 Voltage 0–5V → READ_CH:1
+  CH2 A1 Temperature °C → READ_CH:2
+  CH3 A2 Resistance Ω → READ_CH:3
+  CH4 A3 Light V → READ_CH:4
+  CH5 A4 Current mA → READ_CH:5
+  CH6 A5 Generic V → READ_CH:6
+  All: READ_ALL
+
+DIGITAL OUTPUTS:
+  OUT1-4 → D2-D5  Command: OUT:<pin>:<HIGH|LOW>
+  LED D13: LED_BLINK:<times>:<on_ms>:<off_ms>
+
+FUNCTION GENERATORS:
+  PWM1 D6, PWM2 D9 → PWM:<pin>:<0-255>
+  WAVE1 D10, WAVE2 D11 → WAVE:<ch>:<sine|square|triangle>:<freq>:<amp 0-1>:<offset 0-1>
+  Stop: WAVE_STOP:<ch>  All off: ALL_OFF
+
+DASHBOARD COMMANDS (no serial):
+  PLOT:<id>  PLOT_STOP:<id>  SAMPLE_RATE:<ms>
+
+CURRENT STATE:
+  Sample rate: ${srHz} Hz (${sampleMs}ms)
+${CHANNELS.map(c=>'  '+c.name+': '+(chState[c.id].value!==null?chState[c.id].value+' '+c.unit:'—')).join('\n')}
+${OUTS.map(o=>'  '+o.name+': '+(o.state?'HIGH':'LOW')).join('\n')}
+${WAVES.map(w=>'  '+w.name+': '+(w.running?w.type+' '+w.freq+'Hz':'stopped')).join('\n')}
+
+Reply in 1 sentence. Then output \`\`\`json [{\"cmd\":\"...\"}] \`\`\`.
+For SAMPLE_RATE command use ms value e.g. {"cmd":"SAMPLE_RATE:100"} for 10Hz.`;
+
+  chatHistory.push({role:'user',content:text});
+  try{
+    let reply=apiKey?await callGroq(sys):fallback(text);
+    chatHistory.push({role:'assistant',content:reply});
+    rmThink(); await execReply(reply);
+  }catch(e){rmThink();addMsg('ai','Error: '+esc(e.message));}
+  isSending=false; document.getElementById('sendBtn').disabled=false;
+}
+
+async function callGroq(sys){
+  const r=await fetch('http://localhost:3002/groq',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({apiKey,system:sys,messages:chatHistory})
+  });
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||'Groq HTTP '+r.status);}
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
+  return d.choices[0].message.content;
+}
+
+async function execReply(text){
+  const jm=text.match(/```json\s*([\s\S]*?)```/);
+  const display=text.replace(/```json[\s\S]*?```/g,'').trim();
+  log('AI: '+display.slice(0,120),'ai');
+  let chips='';
+  if(jm){
+    try{
+      const cmds=JSON.parse(jm[1]);
+      for(const c of cmds){
+        const raw=typeof c==='string'?c:(c.cmd||''); if(!raw) continue;
+        await execCmd(raw);
+        chips+=`<span class="chip">${esc(raw)}</span>`;
+      }
+    }catch(e){log('JSON err: '+e.message,'err');}
+  }
+  addMsg('ai',esc(display)+(chips?'<br>'+chips:''));
+}
+
+async function execCmd(cmd){
+  if(cmd.startsWith('PLOT:')){const id=parseInt(cmd.slice(5));if(!chState[id].plotting)togglePlot(id);return;}
+  if(cmd.startsWith('PLOT_STOP:')){const id=parseInt(cmd.slice(10));if(chState[id].plotting)togglePlot(id);return;}
+  if(cmd.startsWith('SAMPLE_RATE:')){
+    const ms=parseInt(cmd.slice(12));
+    setSampleRate(ms);
+    document.getElementById('srSel').value=ms;
+    return;
+  }
+  if(cmd.startsWith('WAVE:')&&!cmd.startsWith('WAVE_STOP')){
+    const p=cmd.split(':');
+    const w=WAVES.find(x=>x.id===parseInt(p[1]));
+    if(w){w.type=p[2];w.freq=parseFloat(p[3]);w.amp=parseFloat(p[4]);w.offset=parseFloat(p[5]);w.running=true;renderWaveList();}
+  }
+  if(cmd.startsWith('WAVE_STOP:')){const w=WAVES.find(x=>x.id===parseInt(cmd.slice(10)));if(w){w.running=false;renderWaveList();}}
+  if(cmd.startsWith('OUT:')){const p=cmd.split(':');setOutUI(parseInt(p[1]),p[2]==='HIGH');}
+  if(cmd==='ALL_OFF'){OUTS.forEach(o=>setOutUI(o.pin,false));WAVES.forEach(w=>{w.running=false;});renderWaveList();}
+  send(cmd);
+  await new Promise(r=>setTimeout(r,60));
+}
+
+function fallback(t){
+  const l=t.toLowerCase();
+  const srm=l.match(/(\d+)\s*hz/);
+  if(srm&&(l.includes('sample')||l.includes('rate')||l.includes('speed'))){
+    const hz=parseInt(srm[1]), ms=Math.round(1000/hz);
+    return `Setting sample rate to ${hz}Hz.\n\`\`\`json\n[{"cmd":"SAMPLE_RATE:${ms}"}]\n\`\`\``;
+  }
+  if(l.includes('blink'))               return 'Blinking LED 3 times.\n```json\n[{"cmd":"LED_BLINK:3:300:300"}]\n```';
+  if(l.includes('voltage')||l.includes('ch1')) return 'Reading voltage CH1.\n```json\n[{"cmd":"READ_CH:1"}]\n```';
+  if(l.includes('temp')||l.includes('ch2'))    return 'Reading temperature CH2.\n```json\n[{"cmd":"READ_CH:2"}]\n```';
+  if(l.includes('resist')||l.includes('ch3'))  return 'Measuring resistance CH3.\n```json\n[{"cmd":"READ_CH:3"}]\n```';
+  if(l.includes('light')||l.includes('ch4'))   return 'Reading light CH4.\n```json\n[{"cmd":"READ_CH:4"}]\n```';
+  if(l.includes('current')||l.includes('ch5')) return 'Reading current CH5.\n```json\n[{"cmd":"READ_CH:5"}]\n```';
+  if(l.includes('read all'))  return 'Reading all channels.\n```json\n[{"cmd":"READ_ALL"}]\n```';
+  if(l.includes('plot')&&l.match(/ch([1-6])/i)){const n=l.match(/ch([1-6])/i)[1];return `Plotting CH${n}.\n\`\`\`json\n[{"cmd":"READ_CH:${n}"},{"cmd":"PLOT:${n}"}]\n\`\`\``;}
+  if(l.includes('sine'))     return 'Generating sine WAVE1.\n```json\n[{"cmd":"WAVE:1:sine:1.00:0.80:0.50"}]\n```';
+  if(l.includes('square'))   return 'Generating square WAVE1.\n```json\n[{"cmd":"WAVE:1:square:1.00:0.80:0.50"}]\n```';
+  if(l.includes('triangle')) return 'Generating triangle WAVE1.\n```json\n[{"cmd":"WAVE:1:triangle:1.00:0.80:0.50"}]\n```';
+  if(l.includes('pwm'))      return 'Setting PWM1 50%.\n```json\n[{"cmd":"PWM:6:128"}]\n```';
+  if(l.includes('all off'))  return 'All off.\n```json\n[{"cmd":"ALL_OFF"}]\n```';
+  return 'Add your Groq API key for full natural language. Try the quick buttons below.';
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+boot();
+</script>
+</body>
+</html>
